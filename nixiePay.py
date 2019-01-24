@@ -120,8 +120,6 @@ def parseCardInfo(exportData):
 			cards[wekanCard['_id']]['isClear'] = False
 			parseCardDescription(cards[wekanCard['_id']])
 
-		
-
 
 # inspect checklist items, give data to each team member
 def parseChecklistItems(exportData):
@@ -140,7 +138,6 @@ def parseChecklistItems(exportData):
 			if title[0] == 'T':
 				cards[wekanItem['cardId']]['title_Bilibili'] = title[1:]
 			
-			
 
 # initialize user directary		
 def parseUserInfo(exportData):
@@ -153,6 +150,7 @@ def parseUserInfo(exportData):
 			"userName": wekanUser['username'],
 			'id': wekanUser['_id']
 		}
+
 
 def validateCards():
 	if len(CNYmemberIds) is 0:
@@ -171,6 +169,7 @@ def validateCards():
 		if not foundError:
 			card['isClear'] = True
 
+
 def printErrors():
 	for key, values in errorTasks.items():
 		if values:
@@ -178,6 +177,7 @@ def printErrors():
 			for v in values:
 				print(v)
 			print()
+
 
 #stolen from kilo19
 def show_exception_and_exit(exc_type, exc_value, tb):
@@ -232,6 +232,7 @@ def writeSalary(clearTaskMapping):
 					num_segments = str(cards[taskId]['num_D_segments'])
 					duration_cells.append(duration_cell + '/' + num_segments)
 				if len(duration_cells) > 0:
+					duration_cells = sorted(duration_cells)
 					formula = '=' + cellStart['price']['translator'] + '*' +  '(' + '+'.join(duration_cells) + ')'
 				else:
 					formula = ''
@@ -249,6 +250,7 @@ def writeSalary(clearTaskMapping):
 					num_segments = str(cards[taskId]['num_P_segments'])
 					duration_cells.append(duration_cell + '/' + num_segments)
 				if len(duration_cells) > 0:
+					duration_cells = sorted(duration_cells)
 					formula = '=' + cellStart['price']['proofreader'] + '*' +  '(' + ' + '.join(duration_cells) + ')'
 				else:
 					formula = ''
@@ -266,6 +268,7 @@ def writeSalary(clearTaskMapping):
 					num_segments = str(cards[taskId]['num_S_segments'])
 					duration_cells.append(duration_cell + '/' + num_segments)
 				if len(duration_cells) > 0:
+					duration_cells = sorted(duration_cells)
 					formula = '=' +  cellStart['price']['subtitler'] + '*' +  '(' + '+'.join(duration_cells) + ')'
 				else:
 					formula = ''
