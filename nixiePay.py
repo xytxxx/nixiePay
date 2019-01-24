@@ -5,6 +5,7 @@ import copy
 import sys
 import re
 import os
+import time	
 import xlwings as xw
 
 listToInclude = '2018-12' #change this to the title of the list
@@ -242,7 +243,7 @@ def writeSalary(clearTaskMapping):
 
 		if len(user['S']) is not 0:
 			duration_cells = []
-			for taskId in user['D']:
+			for taskId in user['S']:
 				duration_cell = videoDuraionRow + str(clearTaskMapping[taskId])
 				num_segments = str(cards[taskId]['num_S_segments'])
 				duration_cells.append(duration_cell + '/' + num_segments)
@@ -251,9 +252,13 @@ def writeSalary(clearTaskMapping):
 	
 
 	xw.Range(cellStart['tally']['cnyTranslator']).value = cnyTranslators
+	time.sleep(.300)
 	xw.Range(cellStart['tally']['usdTranslator']).value = usdTranslators
+	time.sleep(.300)
 	xw.Range(cellStart['tally']['cnyProofreader']).value = cnyProofreaders 
+	time.sleep(.300)
 	xw.Range(cellStart['tally']['usdProofreader']).value = usdProofreaders 
+	time.sleep(.300)
 	xw.Range(cellStart['tally']['subtitler']).value = subtitlers 
 
 def clearTally():
