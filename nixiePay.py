@@ -5,7 +5,6 @@ import copy
 import sys
 import re
 import os
-import time	
 import xlwings as xw
 
 listToInclude = '-' #change this to the title of the list
@@ -176,6 +175,7 @@ def printErrors():
 				print(v)
 			print()
 
+#stolen from kilo19
 def show_exception_and_exit(exc_type, exc_value, tb):
 	printErrors()
 	import traceback
@@ -271,13 +271,9 @@ def writeSalary(clearTaskMapping):
 	
 
 	xw.Range(cellStart['tally']['cnyTranslator']).value = cnyTranslators
-	time.sleep(.300)
 	xw.Range(cellStart['tally']['usdTranslator']).value = usdTranslators
-	time.sleep(.300)
 	xw.Range(cellStart['tally']['cnyProofreader']).value = cnyProofreaders 
-	time.sleep(.300)
 	xw.Range(cellStart['tally']['usdProofreader']).value = usdProofreaders 
-	time.sleep(.300)
 	xw.Range(cellStart['tally']['subtitler']).value = subtitlers 
 
 def clearTally():
