@@ -8,17 +8,17 @@ import os
 import time	
 import xlwings as xw
 
-listToInclude = '2018-12' #change this to the title of the list
+listToInclude = '-' #change this to the title of the list
 
 errorTasks = {'有分段缺少结束时间': set(),
 				'无法解析分段时间戳或没有时间戳': set(),
-				'没有轴': set(),
+				'没有轴, 或者@的名字不对': set(),
 				# '初翻检查项没有翻译的名字': set(),
 				'分段时间戳与初翻检查项数量不符': set(),
 				# '校对检查项没有二校名字或名字不是二校\n如果是二校负责了本任务二校并且检查项无误，请联系Kilo19': set(),
 				# '检查项错误\n必须D、P、T三者之一开头（代表初翻、二校、标题），后面跟半角空格\nD与P项需要有@人名，@与D和P后的半角空格之间可以有任何字符': set(),
-				'没有校对': set(),
-				'按D, P, S后加的名字找不到对应成员': set(),
+				'没有校对, 或者@的名字不对': set(),
+				'按D, P, S后加的名字找不到对应成员,请确认@对了人': set(),
 				'未找到CNY任务(或者全员Paypal?)': set()}
 
 # cards has the format:
@@ -105,7 +105,7 @@ def parseCardInfo(exportData):
 		if wekanCard['title'] == 'CNY' and len(CNYmemberIds) == 0:
 			CNYmemberIds[:] = wekanCard['members'][:]
 		# only include cards of desired list
-		if lists[wekanCard['listId']] == listToInclude:
+		if listToInclude in lists[wekanCard['listId']] :
 			cards[wekanCard['_id']] = {picked: wekanCard[picked] for picked in ["title", "createdAt", "description"]}		
 			# initialize card data structure
 			cards[wekanCard['_id']]['num_D_segments'] = 0
@@ -113,7 +113,10 @@ def parseCardInfo(exportData):
 			cards[wekanCard['_id']]['num_S_segments'] = 0
 			cards[wekanCard['_id']]['num_D_segments_should_be'] = 0
 			cards[wekanCard['_id']]['id'] = wekanCard['_id']
+			cards[wekanCard['_id']]['title_Bilibili'] = '未检测到'
+			cards[wekanCard['_id']]['isClear'] = False
 			parseCardDescription(cards[wekanCard['_id']])
+
 		
 
 
@@ -127,7 +130,7 @@ def parseChecklistItems(exportData):
 				# found a segment in cards
 				member = wekanItem['title'].split('@', 1)[1]
 				if member not in users:
-					errorTasks['按D, P, S后加的名字找不到对应成员'].add(cards[wekanItem['cardId']]['title'])
+					errorTasks['按D, P, S后加的名字找不到对应成员,请确认@对了人'].add(cards[wekanItem['cardId']]['title'])
 				else: 
 					cards[wekanItem['cardId']]['num_'+title[0]+'_segments'] += 1
 					users[member][title[0]].append(wekanItem['cardId'])
@@ -157,10 +160,10 @@ def validateCards():
 			errorTasks['分段时间戳与初翻检查项数量不符'].add(card['title'])
 			foundError = True
 		if card['num_P_segments'] is 0:
-			errorTasks['没有校对'].add(card['title'])
+			errorTasks['没有校对, 或者@的名字不对'].add(card['title'])
 			foundError = True
 		if card['num_S_segments'] is 0:
-			errorTasks['没有轴'].add(card['title'])
+			errorTasks['没有轴, 或者@的名字不对'].add(card['title'])
 			foundError = True
 		if not foundError:
 			card['isClear'] = True
@@ -220,35 +223,51 @@ def writeSalary(clearTaskMapping):
 		if len(user['D']) is not 0:
 			duration_cells = []
 			for taskId in user['D']:
-				duration_cell = videoDuraionRow + str(clearTaskMapping[taskId])
-				num_segments = str(cards[taskId]['num_D_segments'])
-				duration_cells.append(duration_cell + '/' + num_segments)
-			formula = '=' + cellStart['price']['translator'] + '*' +  '(' + '+'.join(duration_cells) + ')'
-			if cny is True:
-				cnyTranslators.append([userName, formula])
-			else:
-				usdTranslators.append([userName, formula])
-		
+				if cards[taskId]['isClear']: 
+					duration_cell = videoDuraionRow + str(clearTaskMapping[taskId])
+					num_segments = str(cards[taskId]['num_D_segments'])
+					duration_cells.append(duration_cell + '/' + num_segments)
+				if len(duration_cells) > 0:
+					formula = '=' + cellStart['price']['translator'] + '*' +  '(' + '+'.join(duration_cells) + ')'
+				else:
+					formula = ''
+			if formula != '':
+				if cny is True:
+					cnyTranslators.append([userName, formula])
+				else:
+					usdTranslators.append([userName, formula])
+			
 		if len(user['P']) is not 0:
 			duration_cells = []
 			for taskId in user['P']:
-				duration_cell = videoDuraionRow + str(clearTaskMapping[taskId])
-				num_segments = str(cards[taskId]['num_P_segments'])
-				duration_cells.append(duration_cell + '/' + num_segments)
-			formula = '=' + cellStart['price']['proofreader'] + '*' +  '(' + ' + '.join(duration_cells) + ')'
-			if cny is True:
-				cnyProofreaders.append([user['userName'], formula])
-			else:
-				usdProofreaders.append([user['userName'], formula])
+				if cards[taskId]['isClear']: 
+					duration_cell = videoDuraionRow + str(clearTaskMapping[taskId])
+					num_segments = str(cards[taskId]['num_P_segments'])
+					duration_cells.append(duration_cell + '/' + num_segments)
+				if len(duration_cells) > 0:
+					formula = '=' + cellStart['price']['proofreader'] + '*' +  '(' + ' + '.join(duration_cells) + ')'
+				else:
+					formula = ''
+			if formula != '':
+				if cny is True:
+					cnyProofreaders.append([user['userName'], formula])
+				else:
+					usdProofreaders.append([user['userName'], formula])
 
 		if len(user['S']) is not 0:
 			duration_cells = []
 			for taskId in user['S']:
-				duration_cell = videoDuraionRow + str(clearTaskMapping[taskId])
-				num_segments = str(cards[taskId]['num_S_segments'])
-				duration_cells.append(duration_cell + '/' + num_segments)
-			formula = '=' +  cellStart['price']['subtitler'] + '*' +  '(' + '+'.join(duration_cells) + ')'
-			subtitlers.append([user['userName'], formula])
+				if cards[taskId]['isClear']: 
+					duration_cell = videoDuraionRow + str(clearTaskMapping[taskId])
+					num_segments = str(cards[taskId]['num_S_segments'])
+					duration_cells.append(duration_cell + '/' + num_segments)
+				if len(duration_cells) > 0:
+					formula = '=' +  cellStart['price']['subtitler'] + '*' +  '(' + '+'.join(duration_cells) + ')'
+				else:
+					formula = ''
+			if formula != '':
+				subtitlers.append([user['userName'], formula])
+				
 	
 
 	xw.Range(cellStart['tally']['cnyTranslator']).value = cnyTranslators
