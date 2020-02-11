@@ -6,10 +6,11 @@ import sys
 import re
 import os
 import xlwings as xw
+from collections import defaultdict
 
 #=======================================================================================
 
-listToInclude = '2019-09'
+listToInclude = '2020-01'
 					# 把想要结算的列表的的名字放在引号里，所有名字包括引号内容的列表都会被结算
 					# 例如：  如果引号内是'-'，项目是2019年1月，
 					# 		 那么'2019-1' 列和'2018-12’列都会被结算
@@ -23,7 +24,8 @@ errorTasks = {'有分段缺少结束时间': set(),
 				'分段时间戳与初翻检查项数量不符': set(),
 				'没有校对, 或者@的名字不对': set(),
 				'按D, P, S后加的名字找不到对应成员,请确认@对了人': set(),
-				'未找到CNY任务(或者全员Paypal?)': set()}
+				'未找到CNY任务(或者全员Paypal?)': set(),
+				'有无校对分段但是D, P分段数量不一致': set()}
 
 # cards has the format:
 # {
@@ -64,10 +66,11 @@ errorTasks = {'有分段缺少结束时间': set(),
 # }
 cards = {}
 users = {}
+cards_all = {}
 lists = {}
 CNYmemberIds = []
 cellStart = {'tasks': 'A3',
-			'price': {'translator': 'J3', 'proofreader': 'J4', 'subtitler': 'J5'},
+			'price': {'translator': 'J3', 'no_proofread': 'J4', 'proofreader': 'J5', 'subtitler': 'J6'},
 			'tally': {'cnyTranslator': 'E3', 'usdTranslator': 'G3',
 					  'cnyProofreader': 'I21', 'usdProofreader': 'K21',
 					  'subtitler': 'I12'}}
@@ -116,26 +119,62 @@ def parseCardInfo(exportData):
 			cards[wekanCard['_id']]['num_P_segments'] = 0
 			cards[wekanCard['_id']]['num_S_segments'] = 0
 			cards[wekanCard['_id']]['num_D_segments_should_be'] = 0
+			cards[wekanCard['_id']]['skip_proofread_segments'] = []
 			cards[wekanCard['_id']]['id'] = wekanCard['_id']
 			cards[wekanCard['_id']]['title_Bilibili'] = '未检测到'
 			cards[wekanCard['_id']]['isClear'] = False
+			cards[wekanCard['_id']]['error'] = False
 			parseCardDescription(cards[wekanCard['_id']])
 
 
 # inspect checklist items, give data to each team member
 def parseChecklistItems(exportData):
 	readChecklistItems = exportData['checklistItems'] 
+	list_sorts = defaultdict(list)
+	# count number of segments first 
 	for wekanItem in readChecklistItems: 
 		if wekanItem['cardId'] in cards:
 			title = wekanItem['title']
+			list_sorts[wekanItem['checklistId']].append(wekanItem['sort'])
+			list_sorts[wekanItem['checklistId']] = sorted(list_sorts[wekanItem['checklistId']])
 			if title[0] in ['D', 'P', 'S']:
+				cards[wekanItem['cardId']]['num_'+title[0]+'_segments'] += 1
+	# then count 无校对
+	for wekanItem in readChecklistItems: 
+		if wekanItem['cardId'] in cards:
+			title = wekanItem['title']
+			if '@免校对' in title:
+				if cards[wekanItem['cardId']]['num_D_segments'] != cards[wekanItem['cardId']]['num_P_segments']:
+					errorTasks['有无校对分段但是D, P分段数量不一致'].add(cards[wekanItem['cardId']]['title'])
+					cards[wekanItem['cardId']]['error'] = True
+				else:
+					index = list_sorts[wekanItem['checklistId']].index(wekanItem['sort'])
+					cards[wekanItem['cardId']]['skip_proofread_segments'].append(index)
+	
+	for wekanItem in readChecklistItems: 
+		if wekanItem['cardId'] in cards:
+			title = wekanItem['title']
+			if title[0] in ['P', 'S']:
+				# found a segment in cards
+				member = wekanItem['title'].split('@', 1)[1]
+				if member not in users:
+					if '校对' in member:
+						users['免校对'][title[0]].append(wekanItem['cardId'])
+					else:
+						errorTasks['按D, P, S后加的名字找不到对应成员,请确认@对了人'].add(cards[wekanItem['cardId']]['title'])
+				elif not cards[wekanItem['cardId']]['error']:
+					users[member][title[0]].append(wekanItem['cardId'])
+			if title[0] == 'D':
 				# found a segment in cards
 				member = wekanItem['title'].split('@', 1)[1]
 				if member not in users:
 					errorTasks['按D, P, S后加的名字找不到对应成员,请确认@对了人'].add(cards[wekanItem['cardId']]['title'])
-				else: 
-					cards[wekanItem['cardId']]['num_'+title[0]+'_segments'] += 1
-					users[member][title[0]].append(wekanItem['cardId'])
+				elif not cards[wekanItem['cardId']]['error']:
+					index = list_sorts[wekanItem['checklistId']].index(wekanItem['sort'])
+					if index not in cards[wekanItem['cardId']]['skip_proofread_segments']:
+						users[member]['D'].append(wekanItem['cardId'])
+					else:
+						users[member]['DP'].append(wekanItem['cardId'])
 			if title[0] == 'T':
 				cards[wekanItem['cardId']]['title_Bilibili'] = title[1:]
 			
@@ -147,10 +186,19 @@ def parseUserInfo(exportData):
 		users[wekanUser['username']] = {
 			"D": [],
 			"P": [],
+			"DP": [],
 			"S": [],
 			"userName": wekanUser['username'],
 			'id': wekanUser['_id']
 		}
+	users['免校对'] = {
+		"D": [],
+		"DP": [],
+		"P": [],
+		"S": [],
+		"userName": '免校对',
+		'id': '0'
+	}
 
 
 def validateCards():
@@ -186,7 +234,7 @@ def show_exception_and_exit(exc_type, exc_value, tb):
 	import traceback
 	traceback.print_exception(exc_type, exc_value, tb)
 	input('''脚本遇到错误，请截图此画面发送给王二麻。按回车键退出
-	Error encountered, please send a screenshot of this error to Wang Er Ma
+	Error encountered, please send a screenshot of this error to DPang Er Ma
 	Press Enter to Exit
 	''')
 	sys.exit(-1)
@@ -206,7 +254,7 @@ def writeTasks():
 			row = [task['title'],
 				   #精确到.25分钟
 				   round(task['duration'] / 15) / 4,
-				   1 ]  # 1 意为不拖欠，所有任务默认不拖欠
+				   1 ]  # 1 为不拖欠，所有任务默认不拖欠
 			rows.append(row)
 	xw.Range(cellStart['tasks']).value = rows
 	return clearTaskMapping
@@ -225,19 +273,29 @@ def writeSalary(clearTaskMapping):
 		else: 
 			cny = False
 
-		if len(user['D']) is not 0:
+		if len(user['D']) + len(user['DP']) is not 0:
 			duration_cells = []
+			formula = '=' 
 			for taskId in user['D']:
 				if cards[taskId]['isClear']: 
 					duration_cell = videoDuraionRow + str(clearTaskMapping[taskId])
 					num_segments = str(cards[taskId]['num_D_segments'])
 					duration_cells.append(duration_cell + '/' + num_segments)
-				if len(duration_cells) > 0:
-					duration_cells = sorted(duration_cells)
-					formula = '=' + cellStart['price']['translator'] + '*' +  '(' + '+'.join(duration_cells) + ')'
-				else:
-					formula = ''
-			if formula != '':
+			if len(duration_cells) > 0:
+				duration_cells = sorted(duration_cells)
+				formula += cellStart['price']['translator'] + '*' +  '(' + '+'.join(duration_cells) + ')'
+			duration_cells = []
+			for taskId in user['DP']:
+				if cards[taskId]['isClear']: 
+					duration_cell = videoDuraionRow + str(clearTaskMapping[taskId])
+					num_segments = str(cards[taskId]['num_D_segments'])
+					duration_cells.append(duration_cell + '/' + num_segments)
+			if len(duration_cells) > 0:
+				duration_cells = sorted(duration_cells)
+				if formula != '=':
+					formula += '+'
+				formula += cellStart['price']['no_proofread'] + '*' +  '(' + '+'.join(duration_cells) + ')'
+			if formula != '=':
 				if cny is True:
 					cnyTranslators.append([userName, formula])
 				else:
