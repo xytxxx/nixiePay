@@ -10,7 +10,7 @@ from collections import defaultdict
 
 #=======================================================================================
 
-listToInclude = '2020-01'
+listToInclude = '2020-04'
 					# 把想要结算的列表的的名字放在引号里，所有名字包括引号内容的列表都会被结算
 					# 例如：  如果引号内是'-'，项目是2019年1月，
 					# 		 那么'2019-1' 列和'2018-12’列都会被结算
@@ -344,7 +344,7 @@ def writeSalary(clearTaskMapping):
 
 def clearTally():
 	scriptDir = os.path.dirname(os.path.realpath(sys.argv[0]))
-	candidate = glob.glob(os.path.join(scriptDir, 'LMGNS*.xlsx'))[0]
+	candidate = glob.glob(os.path.join(scriptDir, 'lmgns*.xlsx'))[0]
 	wb = xw.Book(candidate)
 	clearTaskMapping = writeTasks()
 	writeSalary(clearTaskMapping)
