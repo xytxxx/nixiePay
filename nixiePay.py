@@ -10,7 +10,7 @@ from collections import defaultdict
 
 #=======================================================================================
 
-listToInclude = '2020-04'
+listToInclude = '2020-07'
 					# 把想要结算的列表的的名字放在引号里，所有名字包括引号内容的列表都会被结算
 					# 例如：  如果引号内是'-'，项目是2019年1月，
 					# 		 那么'2019-1' 列和'2018-12’列都会被结算
@@ -179,7 +179,7 @@ def parseChecklistItems(exportData):
 				cards[wekanItem['cardId']]['title_Bilibili'] = title[1:]
 			
 
-# initialize user directary		
+# initialize user directory		
 def parseUserInfo(exportData):
 	readUsers = exportData['users']
 	for wekanUser in readUsers:
@@ -202,17 +202,17 @@ def parseUserInfo(exportData):
 
 
 def validateCards():
-	if len(CNYmemberIds) is 0:
+	if len(CNYmemberIds) ==0:
 		errorTasks['未找到CNY任务(或者全员Paypal?)'].add(0)
 	for cardId, card in cards.items():
 		foundError = False
 		if ('num_D_segments_should_be' not in card) or (int(card ['num_D_segments']) != int(card['num_D_segments_should_be'])):
 			errorTasks['分段时间戳与初翻检查项数量不符'].add(card['title'])
 			foundError = True
-		if card['num_P_segments'] is 0:
+		if card['num_P_segments'] ==0:
 			errorTasks['没有校对, 或者@的名字不对'].add(card['title'])
 			foundError = True
-		if card['num_S_segments'] is 0:
+		if card['num_S_segments'] ==0:
 			errorTasks['没有轴, 或者@的名字不对'].add(card['title'])
 			foundError = True
 		if not foundError:
@@ -273,7 +273,7 @@ def writeSalary(clearTaskMapping):
 		else: 
 			cny = False
 
-		if len(user['D']) + len(user['DP']) is not 0:
+		if len(user['D']) + len(user['DP']) != 0:
 			duration_cells = []
 			formula = '=' 
 			for taskId in user['D']:
@@ -296,12 +296,12 @@ def writeSalary(clearTaskMapping):
 					formula += '+'
 				formula += cellStart['price']['no_proofread'] + '*' +  '(' + '+'.join(duration_cells) + ')'
 			if formula != '=':
-				if cny is True:
+				if cny ==True:
 					cnyTranslators.append([userName, formula])
 				else:
 					usdTranslators.append([userName, formula])
 			
-		if len(user['P']) is not 0:
+		if len(user['P']) != 0:
 			duration_cells = []
 			for taskId in user['P']:
 				if cards[taskId]['isClear']: 
@@ -314,12 +314,12 @@ def writeSalary(clearTaskMapping):
 				else:
 					formula = ''
 			if formula != '':
-				if cny is True:
+				if cny ==True:
 					cnyProofreaders.append([user['userName'], formula])
 				else:
 					usdProofreaders.append([user['userName'], formula])
 
-		if len(user['S']) is not 0:
+		if len(user['S']) != 0:
 			duration_cells = []
 			for taskId in user['S']:
 				if cards[taskId]['isClear']: 
@@ -344,7 +344,7 @@ def writeSalary(clearTaskMapping):
 
 def clearTally():
 	scriptDir = os.path.dirname(os.path.realpath(sys.argv[0]))
-	candidate = glob.glob(os.path.join(scriptDir, 'lmgns*.xlsx'))[0]
+	candidate = glob.glob(os.path.join(scriptDir, 'LMGNS*.xlsx'))[0]
 	wb = xw.Book(candidate)
 	clearTaskMapping = writeTasks()
 	writeSalary(clearTaskMapping)
